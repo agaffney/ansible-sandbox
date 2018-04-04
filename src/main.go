@@ -13,9 +13,19 @@ import (
 	"time"
 )
 
+var Config struct {
+	staticDir   string
+	listenAddr  string
+	dockerImage string
+}
+
 func indexHandler(w http.ResponseWriter, r *http.Request) {
-	content, _ := ioutil.ReadFile("static/index.html")
-	fmt.Fprintf(w, string(content))
+	if r.URL.Path == "/" {
+		content, _ := ioutil.ReadFile("static/index.html")
+		fmt.Fprintf(w, string(content))
+	} else {
+		w.WriteHeader(404)
+	}
 }
 
 func submitHandler(w http.ResponseWriter, r *http.Request) {
@@ -27,10 +37,27 @@ func submitHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer os.Remove(tmpfile.Name())
 	tmpfile.Write([]byte(r.FormValue("content")))
+	tmpfile.Chmod(0444)
 	tmpfile.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "env", "ANSIBLE_FORCE_COLOR=1", "ansible-playbook", "-i", "localhost,", "-c", "local", tmpfile.Name())
+	cmd := exec.CommandContext(ctx,
+		"docker", "run", "--rm",
+		// Set various env vars for Ansible
+		"-e", "ANSIBLE_FORCE_COLOR=1",
+		"-e", "ANSIBLE_RETRY_FILES_ENABLED=0",
+		"-e", "ANSIBLE_LOCAL_TEMP=/tmp",
+		// Disable networking
+		"--network", "none",
+		// Use non-root user
+		"--user", "nobody",
+		// Map temp file into container
+		"-v", fmt.Sprintf("%s:%s", tmpfile.Name(), tmpfile.Name()),
+		Config.dockerImage,
+		// Run command through shell
+		"sh", "-c",
+		fmt.Sprintf("ansible-playbook -i localhost, -c local %s", tmpfile.Name()),
+	)
 	out, err := cmd.CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded {
 		w.WriteHeader(500)
@@ -42,12 +69,13 @@ func submitHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	static_dir := flag.String("static", "./static", "path to static assets")
-	listen_addr := flag.String("listen", ":8080", "address and port to listen on")
+	flag.StringVar(&Config.staticDir, "static", "./static", "path to static assets")
+	flag.StringVar(&Config.listenAddr, "listen", ":8080", "address and port to listen on")
+	flag.StringVar(&Config.dockerImage, "docker-image", "ansible-sandbox", "docker image to use for running ansible")
 	flag.Parse()
-	http.Handle("/", http.StripPrefix("/static/", http.FileServer(http.Dir(*static_dir))))
-	http.HandleFunc("/index.html", indexHandler)
+	http.HandleFunc("/", indexHandler)
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(Config.staticDir))))
 	http.HandleFunc("/submit", submitHandler)
-	fmt.Printf("Listening on %s\n", *listen_addr)
-	log.Fatal(http.ListenAndServe(*listen_addr, nil))
+	fmt.Printf("Listening on %s\n", Config.listenAddr)
+	log.Fatal(http.ListenAndServe(Config.listenAddr, nil))
 }

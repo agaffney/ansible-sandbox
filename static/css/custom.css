@@ -23,6 +23,8 @@ div.results {
   background-color: #f6f8fa;
   display: none;
   padding: 5px;
+  overflow: auto;
+  overflow-y: hidden;
 }
 img#loading {
   display: none;
