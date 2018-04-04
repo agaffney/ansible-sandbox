@@ -9,7 +9,10 @@
     <!-- Bootstrap core CSS -->
     <link href="static/css/bootstrap.min.css" rel="stylesheet">
 
-    <!-- Custom styles for this template -->
+    <!-- Styles for terminal output rendering -->
+    <link href="static/css/terminal.css" rel="stylesheet">
+
+    <!-- Custom styles -->
     <link href="static/css/custom.css" rel="stylesheet">
   </head>
 
@@ -31,11 +34,28 @@
     </nav>
 
     <div class="container">
-      <h1>stuff and things</h1>
+      <div class="info">
+      This site allows you to paste a simple Ansible playbook and see the result, with a few limitations. There
+      is no access to the network, so you can't fetch external resources. The only host available in the inventory
+      is 'localhost'. The execution of your playbook will be limited to 10 seconds to prevent abuse.
+      </div>
+      <div class="info">
+      Paste your playbook below and click the "Submit" button.
+      </div>
+      <form>
+        <textarea name="playbook_content" id="playbook_content" class="playbook"></textarea>
+        <button type="button" id="playbook_submit" class="btn btn-primary">Submit</button>
+      </form>
+      <h3>Results</h3>
+      <img src="static/images/loading.gif" id="loading"></img>
+      <div class="results" id="results">
+
+      </div>
     </div>
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
     <script>window.jQuery || document.write('<script src="static/js/vendor/jquery.min.js"><\/script>')</script>
     <script src="static/js/bootstrap.min.js"></script>
+    <script src="static/js/custom.js"></script>
   </body>
 </html>
