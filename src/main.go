@@ -17,6 +17,7 @@ var Config struct {
 	staticDir   string
 	listenAddr  string
 	dockerImage string
+	timeout     int
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +40,7 @@ func submitHandler(w http.ResponseWriter, r *http.Request) {
 	tmpfile.Write([]byte(r.FormValue("content")))
 	tmpfile.Chmod(0444)
 	tmpfile.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(Config.timeout)*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx,
 		"docker", "run", "--rm",
@@ -72,6 +73,7 @@ func main() {
 	flag.StringVar(&Config.staticDir, "static", "./static", "path to static assets")
 	flag.StringVar(&Config.listenAddr, "listen", ":8080", "address and port to listen on")
 	flag.StringVar(&Config.dockerImage, "docker-image", "ansible-sandbox", "docker image to use for running ansible")
+	flag.IntVar(&Config.timeout, "timeout", 10, "timeout (in seconds) for playbook runs")
 	flag.Parse()
 	http.HandleFunc("/", indexHandler)
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(Config.staticDir))))
